@@ -1,0 +1,13 @@
+{
+  "name": "radix-app",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "test": "node scripts/checa_config.mjs"
+  },
+  "dependencies": {
+    "@capacitor/android": "8.6.2",
+    "@capacitor/cli": "8.6.2",
+    "@capacitor/core": "8.6.2"
+  }
+}

@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Sem conexão</title>
+<style>
+@font-face { font-family: "Archivo Expandida"; src: url("fonts/archivo-expanded-extrabold.ttf") format("truetype"); font-weight: 800; font-display: swap; }
+@font-face { font-family: "Archivo Texto"; src: url("fonts/archivo-regular.ttf") format("truetype"); font-weight: 400; font-display: swap; }
+@font-face { font-family: "Archivo Texto"; src: url("fonts/archivo-bold.ttf") format("truetype"); font-weight: 700; font-display: swap; }
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  min-height: 100vh;
+  min-height: 100dvh;
+  padding: max(24px, env(safe-area-inset-top)) max(30px, env(safe-area-inset-right)) max(24px, env(safe-area-inset-bottom)) max(30px, env(safe-area-inset-left));
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 26px;
+  background-color: #EEF3F7;
+  background-image: repeating-radial-gradient(circle at 50% 36%, transparent 0 68px, rgba(10,20,64,0.09) 68px 70px);
+  font-family: "Archivo Texto", system-ui, sans-serif;
+  color: #0A1440;
+  text-align: center;
+}
+img { width: 112px; height: auto; display: block; }
+.texto { display: flex; flex-direction: column; gap: 10px; max-width: 330px; }
+h1 {
+  margin: 0;
+  font-family: "Archivo Expandida", system-ui, sans-serif;
+  font-weight: 800;
+  font-size: 27px;
+  line-height: 1.02;
+  letter-spacing: -0.02em;
+  color: #0064FF;
+}
+p { margin: 0; font-size: 16px; line-height: 1.42; color: #3D465C; }
+a.botao {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 52px;
+  padding: 0 30px;
+  border-radius: 14px;
+  background: #0064FF;
+  color: #FFFFFF;
+  font-family: inherit;
+  font-size: 16px;
+  font-weight: 700;
+  text-decoration: none;
+}
+</style>
+</head>
+<body>
+<img src="img/radix_simbolo.png" alt="Símbolo do Radix">
+<div class="texto">
+<h1>Sem conexão.</h1>
+<p>O Radix precisa de internet para abrir. Confira o Wi-Fi ou os dados do celular.</p>
+</div>
+<a class="botao" href="https://app.radixmatematica.com.br">Tentar de novo</a>
+</body>
+</html>

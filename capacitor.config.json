@@ -1,0 +1,10 @@
+{
+  "appId": "br.com.radixmatematica.app",
+  "appName": "Radix",
+  "webDir": "www",
+  "appendUserAgent": "RadixApp/1",
+  "server": {
+    "url": "https://app.radixmatematica.com.br",
+    "errorPath": "offline.html"
+  }
+}

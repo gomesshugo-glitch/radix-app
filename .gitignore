@@ -1,0 +1,7 @@
+node_modules/
+google-services.json
+GoogleService-Info.plist
+*.keystore
+*.jks
+*.p8
+capacitor.config.local.json
