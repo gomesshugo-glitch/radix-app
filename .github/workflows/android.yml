@@ -1,0 +1,106 @@
+name: Android
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+
+# Mínimo necessário: só leitura do código.
+permissions:
+  contents: read
+
+jobs:
+  # Pull request e main: só montagem de depuração. Nenhum segredo é usado aqui.
+  depuracao:
+    if: ${{ !startsWith(github.ref, 'refs/tags/') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6.3.0
+        with:
+          distribution: temurin
+          java-version: 21
+          cache: gradle
+      - run: npx cap sync android
+      - name: Montar APK de depuração
+        working-directory: android
+        run: ./gradlew assembleDebug
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: radix-depuracao-apk
+          path: android/app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
+
+  # Tag v*: pacote assinado (.aab). Só aqui os segredos são lidos.
+  liberacao:
+    if: ${{ startsWith(github.ref, 'refs/tags/v') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      VERSAO_CODIGO: ${{ github.run_number }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+      - run: npm ci
+      - run: npm test
+      - uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6.3.0
+        with:
+          distribution: temurin
+          java-version: 21
+      - run: npx cap sync android
+
+      - name: Preparar a chave de assinatura
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_B64 }}
+          KEYSTORE_SENHA: ${{ secrets.ANDROID_KEYSTORE_SENHA }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+        run: |
+          if [ -z "$KEYSTORE_B64" ] || [ -z "$KEYSTORE_SENHA" ] || [ -z "$KEY_ALIAS" ]; then
+            echo "::error::Faltam segredos de assinatura (ANDROID_KEYSTORE_B64, ANDROID_KEYSTORE_SENHA, ANDROID_KEY_ALIAS). Não será gerado pacote sem assinatura."
+            exit 1
+          fi
+          printf '%s' "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/radix-envio.keystore"
+          echo "ANDROID_KEYSTORE_ARQUIVO=$RUNNER_TEMP/radix-envio.keystore" >> "$GITHUB_ENV"
+
+      - name: Montar o pacote assinado
+        working-directory: android
+        env:
+          VERSAO_NOME: ${{ github.ref_name }}
+          ANDROID_KEYSTORE_SENHA: ${{ secrets.ANDROID_KEYSTORE_SENHA }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+        run: |
+          VERSAO_NOME="${VERSAO_NOME#v}"
+          export VERSAO_NOME
+          ./gradlew bundleRelease
+
+      - name: Conferir que o pacote está assinado
+        run: |
+          aab=$(ls android/app/build/outputs/bundle/release/*.aab)
+          if ! jarsigner -verify "$aab" | grep -q "jar verified"; then
+            echo "::error::O pacote .aab não está assinado. Abortando."
+            exit 1
+          fi
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: radix-pacote-assinado-aab
+          path: android/app/build/outputs/bundle/release/*.aab
+          if-no-files-found: error
+
+      - name: Apagar a chave de assinatura
+        if: ${{ always() }}
+        run: rm -f "$RUNNER_TEMP/radix-envio.keystore"
