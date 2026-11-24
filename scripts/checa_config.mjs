@@ -19,6 +19,14 @@ assert.ok(!/google-services\.json|\.p8|\.keystore/.test(execSync('git ls-files')
 const gradle = fs.readFileSync('android/app/build.gradle', 'utf8');
 assert.ok(!/storePassword\s+['"]/.test(gradle), 'senha literal no build.gradle');
 assert.ok(!/keyPassword\s+['"]/.test(gradle), 'senha de chave literal no build.gradle');
+for (const linha of gradle.split('\n')) {
+  if (/\b(storePassword|keyPassword|keyAlias)\b/.test(linha) && !/^\s*\/\//.test(linha)) {
+    assert.ok(/System\.getenv/.test(linha), 'assinatura deve vir de System.getenv: ' + linha.trim());
+    assert.ok(!/(storePassword|keyPassword|keyAlias)\s*[=(]?\s*['"]/.test(linha), 'valor literal de assinatura: ' + linha.trim());
+  }
+  // Groovy: "versionCode (x).toInteger()" chama versionCode(x) e depois .toInteger() no retorno vazio.
+  assert.ok(!/^\s*(versionCode|versionName)\s+\(/.test(linha), 'chamada sem parênteses começando com parêntese: ' + linha.trim());
+}
 assert.ok(/System\.getenv/.test(gradle), 'build.gradle deve ler a assinatura de System.getenv');
 for (const v of ['ANDROID_KEYSTORE_ARQUIVO', 'ANDROID_KEYSTORE_SENHA', 'ANDROID_KEY_ALIAS', 'VERSAO_NOME', 'VERSAO_CODIGO']) {
   assert.ok(gradle.includes(v), 'build.gradle deve usar ' + v);

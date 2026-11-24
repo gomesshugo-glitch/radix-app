@@ -13,7 +13,7 @@ O fluxo `.github/workflows/android.yml` monta o aplicativo:
 - **Pull request e envio para a `main`:** roda `npm test` e monta o APK de depuração, guardado como artefato da execução. Nenhum segredo é usado nesses casos.
 - **Tag `v*` (por exemplo `v0.1.0`):** roda `npm test`, monta o pacote assinado (`.aab`), confere que ele está de fato assinado e o guarda como artefato. O nome da versão vem da tag e o código de versão, do número da execução.
 
-Para o pacote assinado, o repositório precisa destes três segredos (apenas os nomes): `ANDROID_KEYSTORE_B64`, `ANDROID_KEYSTORE_SENHA` e `ANDROID_KEY_ALIAS`. A assinatura é lida de variáveis de ambiente (`ANDROID_KEYSTORE_ARQUIVO`, `ANDROID_KEYSTORE_SENHA`, `ANDROID_KEY_ALIAS`); sem elas, o build de depuração funciona normalmente e o de liberação sai sem assinatura. Sem os segredos, o fluxo da tag falha em vez de gerar um pacote sem assinatura.
+Para o pacote assinado, o repositório precisa destes três segredos (apenas os nomes): `ANDROID_KEYSTORE_B64`, `ANDROID_KEYSTORE_SENHA` e `ANDROID_KEY_ALIAS`. A assinatura é lida de variáveis de ambiente (`ANDROID_KEYSTORE_ARQUIVO`, `ANDROID_KEYSTORE_SENHA`, `ANDROID_KEY_ALIAS`); sem elas, o build de depuração funciona normalmente e o de liberação sai sem assinatura. A chave dentro do keystore deve usar a mesma senha do próprio keystore (o padrão do formato PKCS12), porque o build lê uma senha só. Sem os segredos, o fluxo da tag falha em vez de gerar um pacote sem assinatura.
 
 ## Ícone e abertura
 

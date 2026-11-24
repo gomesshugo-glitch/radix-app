@@ -8,7 +8,7 @@ android {
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         // Versão vem do ambiente (o fluxo usa o número da execução e a tag); padrão para build local.
-        versionCode (System.getenv("VERSAO_CODIGO") ?: "1").toInteger()
+        versionCode Integer.parseInt(System.getenv("VERSAO_CODIGO") ?: "1")
         versionName System.getenv("VERSAO_NOME") ?: "0.1.0"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {

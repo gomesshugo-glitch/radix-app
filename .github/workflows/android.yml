@@ -73,6 +73,7 @@ jobs:
             echo "::error::Faltam segredos de assinatura (ANDROID_KEYSTORE_B64, ANDROID_KEYSTORE_SENHA, ANDROID_KEY_ALIAS). Não será gerado pacote sem assinatura."
             exit 1
           fi
+          umask 077
           printf '%s' "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/radix-envio.keystore"
           echo "ANDROID_KEYSTORE_ARQUIVO=$RUNNER_TEMP/radix-envio.keystore" >> "$GITHUB_ENV"
 
