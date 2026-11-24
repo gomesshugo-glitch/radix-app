@@ -54,4 +54,12 @@ assert.ok(/secrets\.GOOGLE_SERVICES_JSON_B64/.test(jobs.liberacao), 'o job liber
 assert.equal(wf.split('GOOGLE_SERVICES_JSON_B64').length - 1, jobs.liberacao.split('GOOGLE_SERVICES_JSON_B64').length - 1, 'GOOGLE_SERVICES_JSON_B64 fora do job liberacao');
 assert.ok(/android\/app\/google-services\.json/.test(jobs.liberacao), 'o job liberacao deve escrever o arquivo do Firebase');
 assert.ok(/rm -f[^\n]*google-services\.json/.test(jobs.liberacao), 'a limpeza deve apagar o arquivo do Firebase');
+// Canal padrão dos avisos: o id declarado no manifesto deve ser o que a plataforma usará ('avisos').
+const manifesto = fs.readFileSync('android/app/src/main/AndroidManifest.xml', 'utf8');
+const metaCanal = manifesto.match(/android:name="com\.google\.firebase\.messaging\.default_notification_channel_id"\s+android:resource="@string\/([A-Za-z0-9_]+)"/);
+assert.ok(metaCanal, 'manifesto deve declarar default_notification_channel_id apontando para um recurso string');
+const strs = fs.readFileSync('android/app/src/main/res/values/strings.xml', 'utf8');
+const valorCanal = strs.match(new RegExp('<string name="' + metaCanal[1] + '">([^<]*)</string>'));
+assert.ok(valorCanal, 'falta o recurso string ' + metaCanal[1]);
+assert.equal(valorCanal[1], 'avisos', 'o id do canal deve ser avisos');
 console.log('checa_config: ok');

@@ -28,7 +28,9 @@ npx capacitor-assets generate --android --assetPath resources --iconBackgroundCo
 
 O script só redimensiona e posiciona os arquivos oficiais sobre o azul `#0064FF`; a marca nunca é redesenhada.
 
-O mesmo script gera o ícone pequeno dos avisos (`ic_stat_radix.png`, branco sobre fundo transparente, nas cinco densidades em `android/app/src/main/res/drawable-*`) a partir do símbolo branco oficial: o disco fica branco e a raiz azul vira vazado, porque o Android usa só a transparência desse ícone. Para refazê-lo, rode o mesmo comando acima (o quarto argumento opcional troca a pasta `res` do Android).
+O mesmo script gera o ícone pequeno dos avisos (`ic_stat_radix.png`, branco sobre fundo transparente, nas cinco densidades em `android/app/src/main/res/drawable-*`) a partir do símbolo branco oficial: o disco fica branco e a raiz azul vira vazado, porque o Android usa só a transparência desse ícone. Para refazê-lo, rode o mesmo comando acima (o quarto argumento opcional troca a pasta `res` do Android; para usá-lo é preciso informar antes o argumento da pasta de saída).
+
+O canal padrão das notificações tem id `avisos` (recurso `canal_avisos_id` em `strings.xml`); o nome visível "Avisos do Radix" é criado pela plataforma por meio do plugin, e até lá o Firebase usa o canal dele.
 
 ## Segredos
 
