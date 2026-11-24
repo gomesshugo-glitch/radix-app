@@ -56,8 +56,9 @@ assert.ok(/android\/app\/google-services\.json/.test(jobs.liberacao), 'o job lib
 assert.ok(/rm -f[^\n]*google-services\.json/.test(jobs.liberacao), 'a limpeza deve apagar o arquivo do Firebase');
 // Canal padrão dos avisos: o id declarado no manifesto deve ser o que a plataforma usará ('avisos').
 const manifesto = fs.readFileSync('android/app/src/main/AndroidManifest.xml', 'utf8');
-const metaCanal = manifesto.match(/android:name="com\.google\.firebase\.messaging\.default_notification_channel_id"\s+android:resource="@string\/([A-Za-z0-9_]+)"/);
-assert.ok(metaCanal, 'manifesto deve declarar default_notification_channel_id apontando para um recurso string');
+const metaCanal = manifesto.match(/android:name="com\.google\.firebase\.messaging\.default_notification_channel_id"\s+android:value="@string\/([A-Za-z0-9_]+)"/);
+assert.ok(!/default_notification_channel_id"\s+android:resource/.test(manifesto), 'o id do canal deve usar android:value (texto), nunca android:resource');
+assert.ok(metaCanal, 'manifesto deve declarar default_notification_channel_id com android:value="@string/..."');
 const strs = fs.readFileSync('android/app/src/main/res/values/strings.xml', 'utf8');
 const valorCanal = strs.match(new RegExp('<string name="' + metaCanal[1] + '">([^<]*)</string>'));
 assert.ok(valorCanal, 'falta o recurso string ' + metaCanal[1]);

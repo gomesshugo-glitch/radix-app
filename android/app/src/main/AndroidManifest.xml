@@ -43,7 +43,7 @@
             android:resource="@color/aviso_cor" />
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_channel_id"
-            android:resource="@string/canal_avisos_id" />
+            android:value="@string/canal_avisos_id" />
     </application>
 
     <!-- Permissions -->
