@@ -175,7 +175,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "ORIGEM=\"${SRCROOT}/App/GoogleService-Info.plist\"\nDESTINO=\"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/GoogleService-Info.plist\"\nif [ -f \"$ORIGEM\" ]; then\n  cp \"$ORIGEM\" \"$DESTINO\"\nelse\n  rm -f \"$DESTINO\"\n  echo \"note: GoogleService-Info.plist ausente: o aplicativo sai sem avisos.\"\nfi\n";
+			shellScript = "ORIGEM=\"${SRCROOT}/App/GoogleService-Info.plist\"\nDESTINO=\"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/GoogleService-Info.plist\"\nif [ -f \"$ORIGEM\" ]; then\n  install -m 0644 \"$ORIGEM\" \"$DESTINO\"\nelse\n  rm -f \"$DESTINO\"\n  echo \"note: GoogleService-Info.plist ausente: o aplicativo sai sem avisos.\"\nfi\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
