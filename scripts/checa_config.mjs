@@ -74,7 +74,8 @@ assert.ok(!/(^|\/)GoogleService-Info\.plist$/m.test(tracked), 'GoogleService-Inf
 assert.ok(!/\.(p8|p12|mobileprovision)$/m.test(tracked), 'chave ou perfil de assinatura da Apple está no git');
 assert.ok(!/DEVELOPMENT_TEAM/.test(lerRaiz('ios/App/App.xcodeproj/project.pbxproj')), 'DEVELOPMENT_TEAM não pode ficar no projeto (vem do segredo APPLE_TEAM_ID)');
 for (const f of tracked.split('\n').filter((l) => l.startsWith('ios/') && /\.(swift|plist|pbxproj|entitlements|json|xcconfig|storyboard|gitignore)$/.test(l))) {
-  assert.ok(!/(\/Users\/|[A-Za-z]:\\|@[A-Za-z0-9-]+\.(com|org|net|br))/.test(lerRaiz(f)), 'caminho local ou e-mail em ' + f);
+  // E-mail: parte local + @ + domínio (com subdomínios). O domínio não pode terminar em extensão de arquivo (icone@2x.png).
+  assert.ok(!/(\/Users\/|[A-Za-z]:\\|[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)*\.(?!(?:png|jpe?g|gif|pdf|svg|swift|json|plist|storyboard|xcassets|xcconfig|h|m)\b)[A-Za-z]{2,})/.test(lerRaiz(f)), 'caminho local ou e-mail em ' + f);
 }
 // Push: capacidade de avisos, funções do AppDelegate e nenhum banner do sistema com o app aberto.
 assert.ok(/<key>aps-environment<\/key>/.test(lerRaiz('ios/App/App/App.entitlements')), 'falta aps-environment nas entitlements');
@@ -93,6 +94,8 @@ assert.ok(/"@capacitor\/ios":\s*"\d+\.\d+\.\d+"/.test(lerRaiz('package.json')), 
 // O arquivo do Firebase entra no pacote por uma fase do Xcode, só se existir.
 assert.ok(/GoogleService-Info\.plist/.test(lerRaiz('ios/App/App.xcodeproj/project.pbxproj')), 'falta a fase que copia o GoogleService-Info.plist');
 
+assert.ok(/install -m 0644 \\"\$ORIGEM\\" \\"\$DESTINO\\"/.test(lerRaiz('ios/App/App.xcodeproj/project.pbxproj')), 'a fase do Firebase deve copiar com modo 0644 (o arquivo vai no pacote do iPhone)');
+
 // Fastlane: nada de identificador ou chave literal
 const appfile = lerRaiz('fastlane/Appfile');
 assert.ok(!appfile.includes('@'), 'fastlane/Appfile não pode ter e-mail');
@@ -102,7 +105,10 @@ assert.ok(/lane :beta/.test(fastfile), 'falta a lane beta');
 for (const v of ['APPLE_TEAM_ID', 'ASC_KEY_ID', 'ASC_ISSUER_ID', 'ASC_KEY_P8_ARQUIVO']) {
   assert.ok(fastfile.includes('ENV["' + v + '"]') || fastfile.includes("ENV['" + v + "']"), 'Fastfile deve ler ' + v + ' do ambiente');
 }
-assert.ok(!/(team_id|key_id|issuer_id|DEVELOPMENT_TEAM)\s*(:|=)\s*["'][A-Za-z0-9-]{6,}["']/.test(fastfile), 'identificador literal no Fastfile');
+// Cobre team_id, teamID, key_id, issuer_id e DEVELOPMENT_TEAM em estilo Ruby (: ou =>) e em xcargs (=), com ou sem aspas.
+assert.ok(!/(team_?id|key_?id|issuer_?id|DEVELOPMENT_TEAM)["']?\s*(:|=>|=)\s*["']?[A-Za-z0-9-]{6,}/i.test(fastfile), 'identificador literal no Fastfile');
+assert.ok(/IPA_OUTPUT_PATH/.test(fastfile) && /Payload\/\[\^\/\]\+\\\.app\/GoogleService-Info\\\.plist/.test(fastfile), 'a lane beta deve conferir o GoogleService-Info.plist dentro do .ipa');
+assert.ok(fastfile.indexOf('IPA_OUTPUT_PATH') > fastfile.indexOf('build_app(') && fastfile.indexOf('IPA_OUTPUT_PATH') < fastfile.indexOf('upload_to_testflight('), 'a conferência do .ipa deve ficar entre build_app e upload_to_testflight');
 for (const a of ['app_store_connect_api_key', 'build_app', 'upload_to_testflight']) assert.ok(fastfile.includes(a), 'Fastfile sem ' + a);
 
 // Fluxos do iPhone

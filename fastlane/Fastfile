@@ -9,6 +9,8 @@
 #   VERSAO_NOME        versão pública, no formato 1.2.3 (vem da tag, sem o "v")
 #   VERSAO_CODIGO      número da montagem, inteiro e crescente (vem do número da execução)
 
+require "open3"
+
 min_fastlane_version("2.200.0")
 default_platform(:ios)
 
@@ -60,6 +62,15 @@ platform :ios do
         signingStyle: "automatic"
       }
     )
+
+    # O fluxo só chega aqui com o arquivo do Firebase escrito: ele precisa estar dentro do .ipa,
+    # senão o aplicativo sairia sem avisos. O caminho do .ipa vem do que build_app devolveu.
+    ipa = lane_context[SharedValues::IPA_OUTPUT_PATH]
+    UI.user_error!("O build_app não devolveu um arquivo .ipa existente.") if ipa.nil? || !File.file?(ipa)
+    conteudo_ipa, = Open3.capture2("unzip", "-Z1", ipa)
+    unless conteudo_ipa.lines.any? { |linha| linha.strip.match?(%r{\APayload/[^/]+\.app/GoogleService-Info\.plist\z}) }
+      UI.user_error!("O .ipa não contém GoogleService-Info.plist dentro do .app: o aplicativo sairia sem avisos.")
+    end
 
     upload_to_testflight(
       api_key: chave,
