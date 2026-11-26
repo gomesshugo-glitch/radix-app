@@ -28,6 +28,7 @@ Não há Mac neste projeto: tudo do iPhone é gerado e montado nos computadores 
 - idioma `pt-BR` (diálogos do sistema em português) e o texto de uso da câmera, necessário para a foto de perfil;
 - uma fase de montagem no Xcode que copia o `GoogleService-Info.plist` para dentro do pacote só se o arquivo existir (sem ele, como na montagem de depuração, o aplicativo abre normalmente e o plugin apenas registra que o Firebase não foi configurado);
 - `plugins.FirebaseMessaging.presentationOptions` vazio no `capacitor.config.json`: com o aplicativo aberto, o iPhone não mostra faixa do sistema, e a própria página mostra o aviso;
+- remoção das três imagens `splash-2732x2732*.png` que sobram do modelo do Capacitor no conjunto `Splash` (o Xcode avisa que não pertencem a nenhuma variação);
 - a opção `symlink` do plugin do Firebase no `capacitor.config.json`, exigida pelo README dele para o Swift Package Manager (a pasta `ios/App/CapApp-SPM/symlinks` é criada pelo `cap sync` e não é versionada).
 
 Para refazer a pasta do zero, rode o fluxo `iOS (gerar projeto)` pela aba Actions, baixe o artefato `radix-ios-gerado` e repita os ajustes acima.
