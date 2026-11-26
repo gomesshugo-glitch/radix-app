@@ -45,7 +45,13 @@ jobs:
         run: |
           app="$RUNNER_TEMP/derived/Build/Products/Debug-iphonesimulator/App.app"
           test -d "$app" || { echo "::error::O pacote App.app não foi gerado."; exit 1; }
-          plutil -p "$app/Info.plist" | grep -E "CFBundleIdentifier|CFBundleLocalizations|NSCameraUsageDescription"
+          id=$(plutil -extract CFBundleIdentifier raw -o - "$app/Info.plist") || id=""
+          [ "$id" = "br.com.radixmatematica.app" ] || { echo "::error::CFBundleIdentifier inesperado: '$id'."; exit 1; }
+          loc=$(plutil -extract CFBundleLocalizations json -o - "$app/Info.plist") || loc=""
+          case "$loc" in *'"pt-BR"'*) ;; *) echo "::error::CFBundleLocalizations sem pt-BR: '$loc'."; exit 1 ;; esac
+          cam=$(plutil -extract NSCameraUsageDescription raw -o - "$app/Info.plist") || cam=""
+          [ -n "$cam" ] || { echo "::error::NSCameraUsageDescription ausente ou vazio."; exit 1; }
+          echo "Pacote conferido: $id, localizações $loc, texto da câmera presente."
           if [ -e "$app/GoogleService-Info.plist" ]; then
             echo "::error::O arquivo do Firebase não deveria estar no pacote de depuração."
             exit 1
@@ -56,6 +62,32 @@ jobs:
           name: radix-depuracao-simulador
           path: ${{ runner.temp }}/Radix-simulador.zip
           if-no-files-found: error
+      # Prova do mecanismo da tag: com um arquivo do Firebase FALSO (nunca versionado, nunca no
+      # artefato acima) o pacote deve conter o arquivo e ele deve ser legível por todos (644).
+      - name: Escrever um arquivo do Firebase falso (só para a prova)
+        run: |
+          umask 077
+          {
+            echo '<?xml version="1.0" encoding="UTF-8"?>'
+            echo '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">'
+            echo '<plist version="1.0"><dict><key>ARQUIVO_DE_TESTE_SEM_VALOR_REAL</key><true/></dict></plist>'
+          } > ios/App/App/GoogleService-Info.plist
+          plutil -lint ios/App/App/GoogleService-Info.plist
+          echo "Modo da origem: $(stat -f '%Lp' ios/App/App/GoogleService-Info.plist)"
+      - name: Montar de novo, agora com o arquivo falso
+        run: |
+          xcodebuild             -project ios/App/App.xcodeproj             -scheme App             -configuration Debug             -sdk iphonesimulator             -destination 'generic/platform=iOS Simulator'             -derivedDataPath "$RUNNER_TEMP/derived"             CODE_SIGNING_ALLOWED=NO             CODE_SIGNING_REQUIRED=NO             CODE_SIGN_IDENTITY=""             build
+      - name: Conferir que o arquivo entrou no pacote e é legível por todos
+        run: |
+          app="$RUNNER_TEMP/derived/Build/Products/Debug-iphonesimulator/App.app"
+          f="$app/GoogleService-Info.plist"
+          [ -f "$f" ] || { echo "::error::O arquivo do Firebase não entrou no pacote."; exit 1; }
+          modo=$(stat -f '%Lp' "$f")
+          echo "Modo no pacote: $modo"
+          [ "$modo" = "644" ] || { echo "::error::O arquivo do Firebase está no pacote com modo $modo; deveria ser 644 (legível por todos)."; exit 1; }
+      - name: Apagar o arquivo do Firebase falso
+        if: ${{ always() }}
+        run: rm -f ios/App/App/GoogleService-Info.plist
 
   # Tag v*: montagem assinada e envio ao TestFlight. Só aqui os segredos são lidos.
   liberacao:
