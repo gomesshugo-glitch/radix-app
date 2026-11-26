@@ -77,6 +77,17 @@ jobs:
           printf '%s' "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/radix-envio.keystore"
           echo "ANDROID_KEYSTORE_ARQUIVO=$RUNNER_TEMP/radix-envio.keystore" >> "$GITHUB_ENV"
 
+      - name: Escrever o arquivo do Firebase
+        env:
+          GOOGLE_SERVICES_JSON_B64: ${{ secrets.GOOGLE_SERVICES_JSON_B64 }}
+        run: |
+          if [ -z "$GOOGLE_SERVICES_JSON_B64" ]; then
+            echo "::error::Falta o segredo GOOGLE_SERVICES_JSON_B64. Sem o arquivo do Firebase o aplicativo sairia sem avisos, então não será gerado pacote."
+            exit 1
+          fi
+          umask 077
+          printf '%s' "$GOOGLE_SERVICES_JSON_B64" | base64 -d > android/app/google-services.json
+
       - name: Montar o pacote assinado
         working-directory: android
         env:
@@ -102,6 +113,6 @@ jobs:
           path: android/app/build/outputs/bundle/release/*.aab
           if-no-files-found: error
 
-      - name: Apagar a chave de assinatura
+      - name: Apagar a chave de assinatura e o arquivo do Firebase
         if: ${{ always() }}
-        run: rm -f "$RUNNER_TEMP/radix-envio.keystore"
+        run: rm -f "$RUNNER_TEMP/radix-envio.keystore" android/app/google-services.json
