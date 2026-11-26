@@ -107,8 +107,11 @@ for (const v of ['APPLE_TEAM_ID', 'ASC_KEY_ID', 'ASC_ISSUER_ID', 'ASC_KEY_P8_ARQ
 }
 // Cobre team_id, teamID, key_id, issuer_id e DEVELOPMENT_TEAM em estilo Ruby (: ou =>) e em xcargs (=), com ou sem aspas.
 assert.ok(!/(team_?id|key_?id|issuer_?id|DEVELOPMENT_TEAM)["']?\s*(:|=>|=)\s*["']?[A-Za-z0-9-]{6,}/i.test(fastfile), 'identificador literal no Fastfile');
-assert.ok(/IPA_OUTPUT_PATH/.test(fastfile) && /Payload\/\[\^\/\]\+\\\.app\/GoogleService-Info\\\.plist/.test(fastfile), 'a lane beta deve conferir o GoogleService-Info.plist dentro do .ipa');
-assert.ok(fastfile.indexOf('IPA_OUTPUT_PATH') > fastfile.indexOf('build_app(') && fastfile.indexOf('IPA_OUTPUT_PATH') < fastfile.indexOf('upload_to_testflight('), 'a conferência do .ipa deve ficar entre build_app e upload_to_testflight');
+assert.ok(/lane :confere_ipa/.test(fastfile) && /Payload\/\[\^\/\]\+\\\.app\/GoogleService-Info\\\.plist/.test(fastfile), 'falta a lane confere_ipa com a conferência do GoogleService-Info.plist');
+const posChamada = fastfile.indexOf('confere_ipa(ipa: lane_context[SharedValues::IPA_OUTPUT_PATH])');
+assert.ok(posChamada > fastfile.indexOf('build_app(') && posChamada < fastfile.indexOf('upload_to_testflight('), 'a lane beta deve chamar confere_ipa entre build_app e upload_to_testflight');
+const corpoConfere = fastfile.slice(fastfile.indexOf('lane :confere_ipa'));
+assert.ok(!/ENV\[/.test(corpoConfere), 'confere_ipa não pode depender de variáveis de ambiente');
 for (const a of ['app_store_connect_api_key', 'build_app', 'upload_to_testflight']) assert.ok(fastfile.includes(a), 'Fastfile sem ' + a);
 
 // Fluxos do iPhone

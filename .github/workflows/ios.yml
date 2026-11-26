@@ -85,6 +85,37 @@ jobs:
           modo=$(stat -f '%Lp' "$f")
           echo "Modo no pacote: $modo"
           [ "$modo" = "644" ] || { echo "::error::O arquivo do Firebase está no pacote com modo $modo; deveria ser 644 (legível por todos)."; exit 1; }
+      # Prova da conferência do .ipa que a lane beta faz na tag: sem nenhuma variável da Apple.
+      - name: Montar dois arquivos .ipa de teste, com e sem o arquivo do Firebase
+        run: |
+          app="$RUNNER_TEMP/derived/Build/Products/Debug-iphonesimulator/App.app"
+          rm -rf "$RUNNER_TEMP/ipa-com" "$RUNNER_TEMP/ipa-sem"
+          mkdir -p "$RUNNER_TEMP/ipa-com/Payload" "$RUNNER_TEMP/ipa-sem/Payload"
+          cp -R "$app" "$RUNNER_TEMP/ipa-com/Payload/"
+          cp -R "$app" "$RUNNER_TEMP/ipa-sem/Payload/"
+          rm -f "$RUNNER_TEMP/ipa-sem/Payload/App.app/GoogleService-Info.plist"
+          (cd "$RUNNER_TEMP/ipa-com" && ditto -c -k --keepParent Payload "$RUNNER_TEMP/com-firebase.ipa")
+          (cd "$RUNNER_TEMP/ipa-sem" && ditto -c -k --keepParent Payload "$RUNNER_TEMP/sem-firebase.ipa")
+          unzip -Z1 "$RUNNER_TEMP/com-firebase.ipa" | grep GoogleService || { echo "::error::O .ipa de teste com Firebase está sem o arquivo."; exit 1; }
+          if unzip -Z1 "$RUNNER_TEMP/sem-firebase.ipa" | grep -q GoogleService; then echo "::error::O .ipa de teste sem Firebase ainda tem o arquivo."; exit 1; fi
+      - name: Conferir o .ipa com o arquivo (deve passar)
+        env:
+          FASTLANE_SKIP_UPDATE_CHECK: 1
+          FASTLANE_HIDE_CHANGELOG: 1
+        run: fastlane confere_ipa ipa:"$RUNNER_TEMP/com-firebase.ipa"
+      - name: Conferir o .ipa sem o arquivo (deve falhar)
+        env:
+          FASTLANE_SKIP_UPDATE_CHECK: 1
+          FASTLANE_HIDE_CHANGELOG: 1
+        run: |
+          if fastlane confere_ipa ipa:"$RUNNER_TEMP/sem-firebase.ipa" > "$RUNNER_TEMP/confere-sem.log" 2>&1; then
+            cat "$RUNNER_TEMP/confere-sem.log"
+            echo "::error::A lane confere_ipa aceitou um .ipa sem o arquivo do Firebase."
+            exit 1
+          fi
+          cat "$RUNNER_TEMP/confere-sem.log"
+          grep -q "O .ipa não contém GoogleService-Info.plist" "$RUNNER_TEMP/confere-sem.log" || { echo "::error::A lane falhou, mas não pelo motivo esperado."; exit 1; }
+          echo "Falha esperada confirmada: a lane recusou o .ipa sem o arquivo do Firebase."
       - name: Apagar o arquivo do Firebase falso
         if: ${{ always() }}
         run: rm -f ios/App/App/GoogleService-Info.plist

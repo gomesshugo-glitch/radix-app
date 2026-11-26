@@ -63,18 +63,26 @@ platform :ios do
       }
     )
 
-    # O fluxo só chega aqui com o arquivo do Firebase escrito: ele precisa estar dentro do .ipa,
-    # senão o aplicativo sairia sem avisos. O caminho do .ipa vem do que build_app devolveu.
-    ipa = lane_context[SharedValues::IPA_OUTPUT_PATH]
-    UI.user_error!("O build_app não devolveu um arquivo .ipa existente.") if ipa.nil? || !File.file?(ipa)
-    conteudo_ipa, = Open3.capture2("unzip", "-Z1", ipa)
-    unless conteudo_ipa.lines.any? { |linha| linha.strip.match?(%r{\APayload/[^/]+\.app/GoogleService-Info\.plist\z}) }
-      UI.user_error!("O .ipa não contém GoogleService-Info.plist dentro do .app: o aplicativo sairia sem avisos.")
-    end
+    # O arquivo do Firebase precisa estar dentro do .ipa, senão o aplicativo sairia sem avisos.
+    confere_ipa(ipa: lane_context[SharedValues::IPA_OUTPUT_PATH])
 
     upload_to_testflight(
       api_key: chave,
       skip_waiting_for_build_processing: true
     )
+  end
+
+  # Não depende de nenhuma variável da Apple: só olha dentro do arquivo. Uso: fastlane confere_ipa ipa:caminho.ipa
+  desc "Falha se o .ipa não tiver Payload/<app>.app/GoogleService-Info.plist"
+  lane :confere_ipa do |opcoes|
+    ipa = opcoes[:ipa]
+    UI.user_error!("Falta o caminho do .ipa (ipa:).") if ipa.nil? || ipa.to_s.strip.empty?
+    UI.user_error!("O .ipa não existe: #{ipa}") unless File.file?(ipa)
+    conteudo_ipa, status = Open3.capture2("unzip", "-Z1", ipa)
+    UI.user_error!("Não foi possível listar o conteúdo do .ipa: #{ipa}") unless status.success?
+    unless conteudo_ipa.lines.any? { |linha| linha.strip.match?(%r{\APayload/[^/]+\.app/GoogleService-Info\.plist\z}) }
+      UI.user_error!("O .ipa não contém GoogleService-Info.plist dentro do .app: o aplicativo sairia sem avisos.")
+    end
+    UI.success("O .ipa contém o GoogleService-Info.plist.")
   end
 end
