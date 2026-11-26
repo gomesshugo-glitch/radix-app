@@ -7,8 +7,9 @@ android {
         applicationId "br.com.radixmatematica.app"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
-        versionName "1.0"
+        // Versão vem do ambiente (o fluxo usa o número da execução e a tag); padrão para build local.
+        versionCode Integer.parseInt(System.getenv("VERSAO_CODIGO") ?: "1")
+        versionName System.getenv("VERSAO_NOME") ?: "0.1.0"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
@@ -16,8 +17,22 @@ android {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    signingConfigs {
+        // Assinatura só existe quando as variáveis estão presentes (tag no CI). Nada literal aqui.
+        if (System.getenv("ANDROID_KEYSTORE_ARQUIVO") && System.getenv("ANDROID_KEYSTORE_SENHA") && System.getenv("ANDROID_KEY_ALIAS")) {
+            create("release") {
+                storeFile file(System.getenv("ANDROID_KEYSTORE_ARQUIVO"))
+                storePassword System.getenv("ANDROID_KEYSTORE_SENHA")
+                keyAlias System.getenv("ANDROID_KEY_ALIAS")
+                keyPassword System.getenv("ANDROID_KEYSTORE_SENHA")
+            }
+        }
+    }
     buildTypes {
         release {
+            if (signingConfigs.findByName("release") != null) {
+                signingConfig signingConfigs.release
+            }
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }

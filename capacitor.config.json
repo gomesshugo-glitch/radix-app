@@ -6,5 +6,16 @@
   "server": {
     "url": "https://app.radixmatematica.com.br",
     "errorPath": "offline.html"
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchAutoHide": true,
+      "backgroundColor": "#0064FF"
+    },
+    "StatusBar": {
+      "overlaysWebView": false,
+      "style": "LIGHT",
+      "backgroundColor": "#FFFFFF"
+    }
   }
 }
