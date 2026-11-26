@@ -3,9 +3,6 @@ name: iOS (gerar projeto)
 # Gera a pasta ios/ (projeto Xcode do Capacitor) num macOS e a entrega como artefato.
 # Não grava nada no repositório: quem baixa o artefato confere e versiona a pasta.
 on:
-  # TEMPORÁRIO: só para a primeira execução, antes de o arquivo existir na main.
-  push:
-    branches: [tarefa-14-ios]
   workflow_dispatch:
 
 permissions:

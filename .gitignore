@@ -5,3 +5,10 @@ GoogleService-Info.plist
 *.jks
 *.p8
 capacitor.config.local.json
+*.p12
+*.mobileprovision
+*.ipa
+*.dSYM.zip
+build/
+fastlane/report.xml
+fastlane/README.md

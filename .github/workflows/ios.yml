@@ -1,0 +1,118 @@
+name: iOS
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+
+# Mínimo necessário: só leitura do código.
+permissions:
+  contents: read
+
+jobs:
+  # Pull request e main: montagem sem assinatura para o simulador. Nenhum segredo é usado aqui.
+  depuracao:
+    if: ${{ !startsWith(github.ref, 'refs/tags/') }}
+    runs-on: macos-26
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - run: npx cap sync ios
+      - name: Montar para o simulador, sem assinatura
+        run: |
+          xcodebuild -version
+          xcodebuild \
+            -project ios/App/App.xcodeproj \
+            -scheme App \
+            -configuration Debug \
+            -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath "$RUNNER_TEMP/derived" \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            build
+      - name: Conferir o pacote montado
+        run: |
+          app="$RUNNER_TEMP/derived/Build/Products/Debug-iphonesimulator/App.app"
+          test -d "$app" || { echo "::error::O pacote App.app não foi gerado."; exit 1; }
+          plutil -p "$app/Info.plist" | grep -E "CFBundleIdentifier|CFBundleLocalizations|NSCameraUsageDescription"
+          if [ -e "$app/GoogleService-Info.plist" ]; then
+            echo "::error::O arquivo do Firebase não deveria estar no pacote de depuração."
+            exit 1
+          fi
+          ditto -c -k --keepParent "$app" "$RUNNER_TEMP/Radix-simulador.zip"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: radix-depuracao-simulador
+          path: ${{ runner.temp }}/Radix-simulador.zip
+          if-no-files-found: error
+
+  # Tag v*: montagem assinada e envio ao TestFlight. Só aqui os segredos são lidos.
+  liberacao:
+    if: ${{ startsWith(github.ref, 'refs/tags/v') }}
+    runs-on: macos-26
+    timeout-minutes: 60
+    env:
+      VERSAO_CODIGO: ${{ github.run_number }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+      - run: npm ci
+      - run: npm test
+      - run: npx cap sync ios
+
+      - name: Escrever o arquivo do Firebase
+        env:
+          GOOGLE_SERVICE_INFO_PLIST_B64: ${{ secrets.GOOGLE_SERVICE_INFO_PLIST_B64 }}
+        run: |
+          if [ -z "$GOOGLE_SERVICE_INFO_PLIST_B64" ]; then
+            echo "::error::Falta o segredo GOOGLE_SERVICE_INFO_PLIST_B64. Sem o arquivo do Firebase o aplicativo sairia sem avisos, então não será enviada montagem."
+            exit 1
+          fi
+          umask 077
+          printf '%s' "$GOOGLE_SERVICE_INFO_PLIST_B64" | base64 -D > ios/App/App/GoogleService-Info.plist
+          plutil -lint ios/App/App/GoogleService-Info.plist
+
+      - name: Preparar a chave do App Store Connect
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_P8_B64: ${{ secrets.ASC_KEY_P8_B64 }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          if [ -z "$ASC_KEY_ID" ] || [ -z "$ASC_ISSUER_ID" ] || [ -z "$ASC_KEY_P8_B64" ] || [ -z "$APPLE_TEAM_ID" ]; then
+            echo "::error::Faltam segredos de assinatura (ASC_KEY_ID, ASC_ISSUER_ID, ASC_KEY_P8_B64, APPLE_TEAM_ID). Não será enviada montagem sem assinatura."
+            exit 1
+          fi
+          umask 077
+          printf '%s' "$ASC_KEY_P8_B64" | base64 -D > "$RUNNER_TEMP/AuthKey_radix.p8"
+          echo "ASC_KEY_P8_ARQUIVO=$RUNNER_TEMP/AuthKey_radix.p8" >> "$GITHUB_ENV"
+
+      - name: Montar, assinar e enviar ao TestFlight
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          VERSAO_NOME: ${{ github.ref_name }}
+        run: |
+          VERSAO_NOME="${VERSAO_NOME#v}"
+          export VERSAO_NOME
+          fastlane beta
+
+      - name: Apagar a chave e o arquivo do Firebase
+        if: ${{ always() }}
+        run: rm -f "$RUNNER_TEMP/AuthKey_radix.p8" ios/App/App/GoogleService-Info.plist
