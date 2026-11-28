@@ -1,0 +1,88 @@
+# Nenhum identificador ou chave fica neste arquivo: tudo vem do ambiente, que o fluxo
+# .github/workflows/ios.yml preenche a partir dos segredos do repositório (só na tag v*).
+#
+# Variáveis lidas:
+#   APPLE_TEAM_ID      identificador da equipe no Apple Developer
+#   ASC_KEY_ID         identificador da chave do App Store Connect
+#   ASC_ISSUER_ID      identificador do emissor da chave
+#   ASC_KEY_P8_ARQUIVO caminho do arquivo .p8 (escrito pelo fluxo numa pasta temporária)
+#   VERSAO_NOME        versão pública, no formato 1.2.3 (vem da tag, sem o "v")
+#   VERSAO_CODIGO      número da montagem, inteiro e crescente (vem do número da execução)
+
+require "open3"
+
+min_fastlane_version("2.200.0")
+default_platform(:ios)
+
+platform :ios do
+  desc "Monta o aplicativo com assinatura automática e envia ao TestFlight"
+  lane :beta do
+    [
+      ["APPLE_TEAM_ID", ENV["APPLE_TEAM_ID"]],
+      ["ASC_KEY_ID", ENV["ASC_KEY_ID"]],
+      ["ASC_ISSUER_ID", ENV["ASC_ISSUER_ID"]],
+      ["ASC_KEY_P8_ARQUIVO", ENV["ASC_KEY_P8_ARQUIVO"]],
+      ["VERSAO_NOME", ENV["VERSAO_NOME"]],
+      ["VERSAO_CODIGO", ENV["VERSAO_CODIGO"]]
+    ].each do |nome, valor|
+      UI.user_error!("Falta a variável #{nome}.") if valor.nil? || valor.strip.empty?
+    end
+    UI.user_error!("VERSAO_NOME deve ter o formato 1.2.3.") unless ENV["VERSAO_NOME"].match?(/\A\d+\.\d+\.\d+\z/)
+    UI.user_error!("VERSAO_CODIGO deve ser um número inteiro.") unless ENV["VERSAO_CODIGO"].match?(/\A\d+\z/)
+    UI.user_error!("O arquivo da chave do App Store Connect não existe.") unless File.file?(ENV["ASC_KEY_P8_ARQUIVO"])
+
+    chave = app_store_connect_api_key(
+      key_id: ENV["ASC_KEY_ID"],
+      issuer_id: ENV["ASC_ISSUER_ID"],
+      key_filepath: ENV["ASC_KEY_P8_ARQUIVO"],
+      in_house: false
+    )
+
+    # Assinatura automática: o próprio xcodebuild cria ou baixa certificado e perfil
+    # com a chave do App Store Connect, tanto no arquivamento quanto na exportação.
+    autenticacao = [
+      "-allowProvisioningUpdates",
+      "-authenticationKeyPath #{ENV["ASC_KEY_P8_ARQUIVO"]}",
+      "-authenticationKeyID #{ENV["ASC_KEY_ID"]}",
+      "-authenticationKeyIssuerID #{ENV["ASC_ISSUER_ID"]}"
+    ].join(" ")
+
+    build_app(
+      project: "ios/App/App.xcodeproj",
+      scheme: "App",
+      configuration: "Release",
+      export_method: "app-store",
+      output_directory: "build",
+      output_name: "Radix.ipa",
+      xcargs: "#{autenticacao} CODE_SIGN_STYLE=Automatic DEVELOPMENT_TEAM=#{ENV["APPLE_TEAM_ID"]} MARKETING_VERSION=#{ENV["VERSAO_NOME"]} CURRENT_PROJECT_VERSION=#{ENV["VERSAO_CODIGO"]}",
+      export_xcargs: autenticacao,
+      export_options: {
+        method: "app-store",
+        teamID: ENV["APPLE_TEAM_ID"],
+        signingStyle: "automatic"
+      }
+    )
+
+    # O arquivo do Firebase precisa estar dentro do .ipa, senão o aplicativo sairia sem avisos.
+    confere_ipa(ipa: lane_context[SharedValues::IPA_OUTPUT_PATH])
+
+    upload_to_testflight(
+      api_key: chave,
+      skip_waiting_for_build_processing: true
+    )
+  end
+
+  # Não depende de nenhuma variável da Apple: só olha dentro do arquivo. Uso: fastlane confere_ipa ipa:caminho.ipa
+  desc "Falha se o .ipa não tiver Payload/<app>.app/GoogleService-Info.plist"
+  lane :confere_ipa do |opcoes|
+    ipa = opcoes[:ipa]
+    UI.user_error!("Falta o caminho do .ipa (ipa:).") if ipa.nil? || ipa.to_s.strip.empty?
+    UI.user_error!("O .ipa não existe: #{ipa}") unless File.file?(ipa)
+    conteudo_ipa, status = Open3.capture2("unzip", "-Z1", ipa)
+    UI.user_error!("Não foi possível listar o conteúdo do .ipa: #{ipa}") unless status.success?
+    unless conteudo_ipa.lines.any? { |linha| linha.strip.match?(%r{\APayload/[^/]+\.app/GoogleService-Info\.plist\z}) }
+      UI.user_error!("O .ipa não contém GoogleService-Info.plist dentro do .app: o aplicativo sairia sem avisos.")
+    end
+    UI.success("O .ipa contém o GoogleService-Info.plist.")
+  end
+end

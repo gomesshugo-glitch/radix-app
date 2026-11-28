@@ -1,0 +1,41 @@
+name: iOS (gerar projeto)
+
+# Gera a pasta ios/ (projeto Xcode do Capacitor) num macOS e a entrega como artefato.
+# Não grava nada no repositório: quem baixa o artefato confere e versiona a pasta.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  gerar:
+    runs-on: macos-26
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Registrar as versões do ambiente
+        run: |
+          sw_vers
+          xcodebuild -version
+          fastlane --version
+          node --version
+          npx cap --version
+      - name: Criar o projeto iOS
+        run: npx cap add ios
+      - name: Gerar ícone e abertura do iPhone
+        run: npx capacitor-assets generate --ios --assetPath resources --iconBackgroundColor "#0064FF" --iconBackgroundColorDark "#0064FF" --splashBackgroundColor "#0064FF" --splashBackgroundColorDark "#0064FF"
+      - name: Empacotar a pasta ios
+        run: tar -cf "$RUNNER_TEMP/ios.tar" --exclude='ios/App/CapApp-SPM/symlinks' --exclude='ios/App/CapApp-SPM/.build' ios
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: radix-ios-gerado
+          path: ${{ runner.temp }}/ios.tar
+          if-no-files-found: error
